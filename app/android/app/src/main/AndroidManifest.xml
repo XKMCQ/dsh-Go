@@ -465,5 +465,10 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
+        <!-- LK Store (docs/lkstore.md). Android 11+ hides other packages by default: without these
+             two lines the store's own app and its identity provider read as "not installed", and a
+             head unit that ships the store would still be treated as having no way to update. -->
+        <package android:name="site.lynkco.shop" />
+        <provider android:authorities="site.lynkco.shop.identity" />
     </queries>
 </manifest>

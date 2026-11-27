@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  x86_64 car units only: render with Skia instead of Impeller.
+
+  The head units run an AMD renoir iGPU on Mesa 23.2 (RADV + radeonsi). With
+  Impeller's Vulkan backend, a page that owns a full-screen SurfaceView — the
+  companion room's WebGL canvas — comes out as fine 8-row horizontal noise:
+  the window and the overlay do not land in the same frame (SurfaceFlinger
+  reports `updateAcquireFence: Did not find frame` for this process every
+  frame). Pure Flutter screens are unaffected, which is why only the room
+  shows it.
+
+  Skia's GL backend composites through the same path as everything else on
+  these units and does not show the artefact. See docs/car-x86_64.md.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+    </application>
+</manifest>

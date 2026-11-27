@@ -80,6 +80,32 @@ void main() {
     });
   });
 
+  group('car head unit (WindowClass.carMode)', () {
+    // lib/launch/car_mode.dart sets this once at start-up; every test here
+    // puts it back so the rest of the file keeps the phone rules.
+    tearDown(() => WindowClass.carMode = false);
+
+    test('a wide, short window keeps its columns', () {
+      // 1280 × 480 at hdpi is an 853 × 320 window: a phone on its side by the
+      // rule above, a head unit's whole screen in fact.
+      expect(WindowClass.of(853, 320), WindowClass.compact);
+      WindowClass.carMode = true;
+      expect(WindowClass.of(853, 320), WindowClass.expanded);
+      expect(WindowClass.of(1280, 300), WindowClass.expanded);
+      expect(WindowClass.of(700, 300), WindowClass.medium);
+      // 320 × 480 becomes 480 × 320 on its side: still one column.
+      expect(WindowClass.of(480, 320), WindowClass.compact);
+    });
+
+    test('car mode does not widen a narrow window', () {
+      WindowClass.carMode = true;
+      expect(WindowClass.of(390, 800), WindowClass.compact);
+      expect(WindowClass.of(390, 300), WindowClass.compact);
+      expect(WindowClass.of(599.9, 300), WindowClass.compact);
+      expect(WindowClass.of(600, 300), WindowClass.medium);
+    });
+  });
+
   group('1280 × 800 (tablet landscape)', () {
     test('panel shown: about 30% wide, the list folds into the rail', () {
       final layout = _resolve(1280);

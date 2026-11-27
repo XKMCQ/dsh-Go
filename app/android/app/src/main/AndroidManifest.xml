@@ -14,6 +14,13 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-feature android:name="android.hardware.location" android:required="false" />
     <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <!-- 车机 (docs/car-x86_64.md): head units have no dialer, and the ones driven by a
+         knob or a remote have no touch screen. Neither may decide whether it installs. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <!-- Implied by RECORD_AUDIO (composer voice input, optional): a unit without a
+         microphone plays everything else, so it must not be turned away. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- The live activity (notify/LiveActivity.kt): Android 16 QPR1+ promotes it to a Live Update.
          Normal, granted at install; older systems skip a permission they don't define. -->

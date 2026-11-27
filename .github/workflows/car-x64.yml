@@ -1,0 +1,112 @@
+# Builds the x86_64 (车机) pair on a Linux x86_64 runner: the bundled runtime
+# (runtime/out/x86_64) and the APK that carries it (app-x64-release.apk, built
+# with DSH_CAR=1). Neither can be produced on Windows — runtime/build-runtime.sh
+# runs the patched engine's own build steps, which need a Linux x86_64 host —
+# so this is the supported way to get a head-unit APK.
+#
+#   gh workflow run car-x64.yml --ref main
+#   gh run download <run-id> -n car-x64-apk -D dist/car
+#
+# docs/car-x86_64.md has what the unit must allow and how to check it on the
+# device afterwards. Release builds for phones are unaffected: they still
+# follow docs/release.md.
+name: Car x86_64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: car-x64-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.7
+  # runtime/tawcroot/source.json pins the same NDK; libtawcroot.so is compiled
+  # with it and a release build refuses to go on without it.
+  NDK_VERSION: 28.2.13676358
+  TZ: Asia/Shanghai
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Every download inside build-runtime.sh is hash-verified, so a stale
+      # cache is harmless (same key as runtime.yml).
+      - name: Restore the runtime download cache
+        id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: runtime/.cache
+          key: runtime-downloads-v1-${{ hashFiles('runtime/build-runtime.sh', 'runtime/locks/**') }}
+          restore-keys: runtime-downloads-v1-
+
+      - name: Build the x86_64 runtime
+        run: runtime/build-runtime.sh x86_64
+
+      - name: Check the bundle
+        run: python3 -I tooling/check_runtime_bundle.py x64
+
+      - name: Save the runtime download cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: runtime/.cache
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+      # Keep the runtime of this run: a rebuild only needs the APK half.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: runtime-x86_64
+          path: |
+            runtime/out/x86_64
+            !runtime/out/x86_64/debug/**
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # SDK platform and build-tools are provisioned by Gradle from the pinned
+      # Flutter version; the NDK is not guessed, it is the pinned one.
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - name: Install the pinned NDK
+        run: sdkmanager --install "ndk;$NDK_VERSION" "platform-tools"
+
+      - name: Dependencies
+        working-directory: app
+        run: flutter pub get --enforce-lockfile
+
+      # --no-companion: the licensed companion pack stays out of the repository
+      # and out of a car build. Everything else — the build number, the runtime
+      # bundle check, libtawcroot.so, the R8 JNI check — is the script's.
+      - name: Build the x64 car APK
+        run: |
+          tooling/build-apk.sh -f x64 --no-companion -- --dart-define=DSH_CAR=1
+          cd app/build/app/outputs/flutter-apk
+          sha256sum app-x64-release.apk > SHA256SUMS
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: car-x64-apk
+          path: |
+            app/build/app/outputs/flutter-apk/app-x64-release.apk
+            app/build/app/outputs/flutter-apk/SHA256SUMS
+          retention-days: 30
+          if-no-files-found: error

@@ -36,13 +36,21 @@ enum WindowClass {
   /// Material 3's compact height: below it, a window is a phone on its side.
   static const compactHeight = 480.0;
 
-  static WindowClass of(double width, [double height = double.infinity]) => height < compactHeight
-      ? compact
-      : width >= expandedMin
-      ? expanded
-      : width >= mediumMin
-      ? medium
-      : compact;
+  /// 车机 (lib/launch/car_mode.dart): a head unit's window is wide and short,
+  /// and nothing folds up from below to cover it. Set once, before the first
+  /// frame; false on every other device.
+  static bool carMode = false;
+
+  static WindowClass of(double width, [double height = double.infinity]) {
+    // A phone on its side keeps one column (see the enum: the keyboard takes
+    // half the height). A car head unit has the width and no keyboard, so the
+    // columns may use it.
+    final squashed = height < compactHeight && !(carMode && width >= mediumMin);
+    if (squashed) return compact;
+    if (width >= expandedMin) return expanded;
+    if (width >= mediumMin) return medium;
+    return compact;
+  }
 
   /// [of] for a window [size].
   static WindowClass ofSize(Size size) => of(size.width, size.height);
